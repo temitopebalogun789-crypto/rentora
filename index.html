@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rentora — Find your next home by scrolling</title>
+<meta name="description" content="Rentora: scroll through Nigerian rentals and short-stay homes like TikTok. Search a location, find your place.">
+<style>
+  :root{
+    --bg:#0d0f14; --card:#14171f; --ink:#f5f7fa; --muted:#9aa3b2;
+    --green:#16c784; --green-dark:#0ea365; --teal:#0aa88f;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; overflow:hidden;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+  input,select,textarea{font-family:inherit; font-size:15px;}
+
+  #topbar{position:fixed; top:0; left:0; right:0; z-index:50; background:rgba(13,15,20,.92); backdrop-filter:blur(10px); padding:10px 14px 8px;}
+  .bar-row{display:flex; align-items:center; gap:10px;}
+  #logo{font-size:20px; font-weight:800; letter-spacing:-.5px; white-space:nowrap;}
+  #logo span{color:var(--green);}
+  #search{flex:1; min-width:0; background:#1c212b; border:1px solid #2a3140; color:var(--ink); border-radius:999px; padding:9px 14px; outline:none;}
+  #search::placeholder{color:#6b7484;}
+  #modeTabs{display:flex; gap:8px; margin-top:8px; overflow-x:auto; scrollbar-width:none;}
+  #modeTabs::-webkit-scrollbar{display:none;}
+  .tab{background:#1c212b; color:var(--muted); border-radius:999px; padding:7px 16px; font-size:13.5px; font-weight:600; border:1px solid #2a3140;}
+  .tab.active{background:var(--green); color:#06281c; border-color:var(--green);}
+  .bar-actions{display:flex; gap:8px; margin-top:8px;}
+  .bar-actions button{flex:1; border-radius:12px; padding:9px 10px; font-size:13.5px; font-weight:700;}
+  #listBtn{background:#1c212b; color:var(--ink); border:1px solid #2a3140;}
+  #pricingBtn{background:transparent; color:var(--muted); border:1px solid #2a3140;}
+
+  #feed{position:fixed; inset:0; overflow-y:scroll; scroll-snap-type:y mandatory; padding-top:118px;}
+  #feed::-webkit-scrollbar{display:none;}
+  .card{scroll-snap-align:start; height:calc(100% - 118px); width:100%; position:relative; overflow:hidden; background:#000; border-radius:0 0 var(--radius) var(--radius); margin-bottom:2px;}
+  @media(min-width:560px){
+    #feed{padding:118px 0 0;}
+    .card{width:min(440px,94vw); margin:0 auto 18px; height:calc(100vh - 160px); border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  }
+  .media{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#1a1e26;}
+  .media.vid{display:none;}
+  .card video.media{display:block;}
+  .shade{position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 45%,rgba(0,0,0,.82) 100%);}
+  .dots{position:absolute; top:12px; right:12px; display:flex; gap:4px;}
+  .dots i{width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.4);}
+  .dots i.on{background:#fff;}
+  .featured-badge{position:absolute; top:12px; left:12px; background:linear-gradient(135deg,#f7b733,#fc4a1a); color:#fff; font-size:11px; font-weight:800; padding:5px 10px; border-radius:999px; letter-spacing:.5px;}
+  .overlay{position:absolute; left:0; right:0; bottom:0; padding:16px 16px calc(18px + env(safe-area-inset-bottom));}
+  .price{font-size:26px; font-weight:800; letter-spacing:-.5px;}
+  .price small{font-size:13px; font-weight:600; color:#cfd6e0;}
+  .tagline{display:flex; gap:6px; margin:8px 0 10px; flex-wrap:wrap;}
+  .chip{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.14); color:#e8ecf2; backdrop-filter:blur(4px);}
+  .chip.type{background:var(--green); color:#06281c;}
+  .title{font-size:16px; font-weight:700;}
+  .meta{font-size:13px; color:#cfd6e0; margin-top:3px;}
+  .desc{font-size:13px; color:#aeb7c4; margin-top:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .desc.open{-webkit-line-clamp:unset;}
+  .more{background:none; color:var(--green); font-size:12px; font-weight:700; padding:4px 0 0;}
+  .cta{display:flex; gap:8px; margin-top:12px;}
+  .cta a,.cta button{flex:1; text-align:center; text-decoration:none; border-radius:12px; padding:12px 10px; font-size:14.5px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px;}
+  .wa{background:var(--green); color:#06281c;}
+  .book{background:#1c212b; color:var(--ink); border:1px solid #2a3140;}
+  .landlord{font-size:11.5px; color:#8b94a3; margin-top:10px;}
+
+  #empty{display:none; height:calc(100vh - 140px); margin-top:118px; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--muted); text-align:center; padding:0 30px;}
+  #empty b{color:var(--ink); font-size:17px;}
+
+  .modal{position:fixed; inset:0; z-index:100; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.6);}
+  .modal.open{display:flex;}
+  .sheet{background:var(--card); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:20px 18px calc(22px + env(safe-area-inset-bottom)); max-height:86vh; overflow-y:auto;}
+  @media(min-width:560px){ .modal{align-items:center;} .sheet{border-radius:20px;} }
+  .sheet h2{font-size:18px; margin-bottom:4px;}
+  .sheet p.sub{font-size:13px; color:var(--muted); margin-bottom:14px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:4px;}
+  .field input,.field select,.field textarea{width:100%; background:#1c212b; border:1px solid #2a3140; color:var(--ink); border-radius:12px; padding:11px 12px; outline:none;}
+  .field textarea{min-height:70px; resize:vertical;}
+  .row2{display:flex; gap:10px;} .row2 .field{flex:1;}
+  .primary{width:100%; background:var(--green); color:#06281c; border-radius:12px; padding:13px; font-size:15px; font-weight:800; margin-top:6px;}
+  .ghost{width:100%; background:transparent; color:var(--muted); border-radius:12px; padding:10px; font-size:13.5px; font-weight:600; margin-top:4px;}
+  .err{color:#ff7a7a; font-size:12.5px; margin:4px 0 0; display:none;}
+  .plan{display:flex; gap:10px; margin-bottom:8px; align-items:flex-start; background:#1c212b; border:1px solid #2a3140; border-radius:12px; padding:12px;}
+  .plan.sel{border-color:var(--green);}
+  .plan input{margin-top:3px; accent-color:var(--green);}
+  .plan b{font-size:14px;}
+  .plan .p{color:var(--green); font-weight:800;}
+  .plan small{display:block; color:var(--muted); font-size:12px; margin-top:2px;}
+  .fine{font-size:11.5px; color:#77808f; margin-top:10px; line-height:1.5;}
+  .pricegrid{display:flex; flex-direction:column; gap:10px;}
+  .pricecard{background:#1c212b; border:1px solid #2a3140; border-radius:14px; padding:14px;}
+  .pricecard.best{border-color:var(--green);}
+  .pricecard .top{display:flex; justify-content:space-between; align-items:baseline;}
+  .pricecard b{font-size:15px;}
+  .pricecard .p{color:var(--green); font-weight:800;}
+  .pricecard small{color:var(--muted); display:block; margin-top:4px; font-size:12.5px; line-height:1.5;}
+  .soon{display:inline-block; font-size:10.5px; font-weight:800; color:#f7b733; border:1px solid #f7b733; border-radius:999px; padding:3px 8px; margin-left:8px; vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="bar-row">
+    <div id="logo">Ren<span>tor</span>a</div>
+    <input id="search" type="search" placeholder="Search a location… e.g. Lekki, Abuja" autocomplete="off">
+  </div>
+  <div id="modeTabs">
+    <button class="tab active" data-mode="rental">🏠 Long rentals</button>
+    <button class="tab" data-mode="short">🛏️ Short stays</button>
+  </div>
+  <div class="bar-actions">
+    <button id="listBtn">List your property</button>
+    <button id="pricingBtn">Pricing</button>
+  </div>
+</div>
+
+<div id="feed"></div>
+<div id="empty"><b>No properties here yet</b><span>Try another area, or be the first to list one.</span></div>
+
+<div class="modal" id="signupModal">
+  <div class="sheet">
+    <h2>Create your landlord account</h2>
+    <p class="sub">Tenants reach you on WhatsApp. Free to join.</p>
+    <div class="field"><label>Your name</label><input id="su_name" placeholder="e.g. Chidi Okafor"></div>
+    <div class="field"><label>WhatsApp number</label><input id="su_phone" type="tel" placeholder="e.g. 0803 123 4567"></div>
+    <div class="field"><label>Email</label><input id="su_email" type="email" placeholder="you@example.com"></div>
+    <p class="err" id="su_err">Please fill every field with a valid phone number.</p>
+    <button class="primary" id="su_go">Create account</button>
+    <button class="ghost" data-close>Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="listModal">
+  <div class="sheet">
+    <h2>Post a property</h2>
+    <p class="sub">Videos and photos scroll best — that's what tenants swipe on.</p>
+    <div class="field"><label>Listing type</label><select id="li_type"><option value="rental">Long rental</option><option value="short">Short stay</option></select></div>
+    <div class="field"><label>Title</label><input id="li_title" placeholder="e.g. 2-bedroom flat with balcony"></div>
+    <div class="row2">
+      <div class="field"><label id="li_priceLabel">Price per year (₦)</label><input id="li_price" type="number" inputmode="numeric" placeholder="2500000"></div>
+      <div class="field"><label>Bedrooms</label><input id="li_beds" type="number" inputmode="numeric" placeholder="2"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Bathrooms</label><input id="li_baths" type="number" inputmode="numeric" placeholder="2"></div>
+      <div class="field"><label>Area</label><input id="li_area" placeholder="e.g. Lekki"></div>
+    </div>
+    <div class="field"><label>City</label><input id="li_city" placeholder="e.g. Lagos"></div>
+    <div class="field"><label>Description</label><textarea id="li_desc" placeholder="What makes this place great? Prepaid meter? POP? Gated estate?"></textarea></div>
+    <div class="field"><label>Photos (up to 4)</label><input id="li_photos" type="file" accept="image/*" multiple></div>
+    <div class="field"><label>Video walkthrough link (optional)</label><input id="li_video" type="url" placeholder="https://…"></div>
+    <div class="field"><label>Contact WhatsApp number</label><input id="li_phone" type="tel" placeholder="0803 123 4567"></div>
+    <p class="err" id="li_err">Please fill the required fields.</p>
+    <div style="margin:12px 0 4px; font-size:12px; font-weight:700; color:var(--muted);">Choose a plan</div>
+    <div class="plan" data-plan="basic">
+      <input type="radio" name="plan" value="basic" checked>
+      <div><b>Basic</b> <span class="p">Free</span><small>1 free trial listing, normal placement in the feed.</small></div>
+    </div>
+    <div class="plan" data-plan="standard">
+      <input type="radio" name="plan" value="standard">
+      <div><b>Standard</b> <span class="p">₦2,000</span><small>Highlighted card so tenants notice you faster.</small></div>
+    </div>
+    <div class="plan" data-plan="premium">
+      <input type="radio" name="plan" value="premium">
+      <div><b>Premium</b> <span class="p">₦5,000</span><small>Featured: pinned to the top of the feed with a badge.</small></div>
+    </div>
+    <p class="fine">Card payments are coming soon. For now we'll reach you on WhatsApp to complete plan payment, and a 5% service fee applies on completed short-stay bookings.</p>
+    <button class="primary" id="li_go">Post listing</button>
+    <button class="ghost" data-close>Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="pricingModal">
+  <div class="sheet">
+    <h2>Landlord pricing</h2>
+    <p class="sub">How Rentora makes money, in plain terms.</p>
+    <div class="pricegrid">
+      <div class="pricecard"><div class="top"><b>Basic</b><span class="p">Free</span></div><small>Your first listing, free, normal placement in the feed.</small></div>
+      <div class="pricecard"><div class="top"><b>Standard</b><span class="p">₦2,000 <span class="soon">pay once</span></span></div><small>Per listing. Highlighted card, stands out while tenants scroll.</small></div>
+      <div class="pricecard best"><div class="top"><b>Premium</b><span class="p">₦5,000 <span class="soon">pay once</span></span></div><small>Per listing. Featured placement pinned at the top of the feed with a Featured badge. Best for fast lets.</small></div>
+      <div class="pricecard"><div class="top"><b>Short stays</b><span class="p">5% commission</span></div><small>On completed short-stay bookings made through Rentora. You keep 95%.</small></div>
+    </div>
+    <p class="fine">Card payments are coming soon. Plan payments are completed manually over WhatsApp for now.</p>
+    <button class="primary" data-close>Got it</button>
+  </div>
+</div>
+
+<div class="modal" id="bookModal">
+  <div class="sheet">
+    <h2>Request to book</h2>
+    <p class="sub" id="bk_sub"></p>
+    <div class="row2">
+      <div class="field"><label>Check-in</label><input id="bk_in" type="date"></div>
+      <div class="field"><label>Check-out</label><input id="bk_out" type="date"></div>
+    </div>
+    <div class="field"><label>Guests</label><input id="bk_guests" type="number" inputmode="numeric" placeholder="2"></div>
+    <p class="err" id="bk_err">Pick your dates first.</p>
+    <button class="primary" id="bk_go">Send request on WhatsApp</button>
+    <button class="ghost" data-close>Cancel</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s){return document.querySelector(s);};
+  var feed=$("#feed"), emptyBox=$("#empty"), searchEl=$("#search");
+  var mode="rental", query="";
+
+  function store(k,v){ try{ if(v===undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k,JSON.stringify(v)); }catch(e){ return null; } }
+
+  var SEED=[
+    {id:"s1",type:"rental",featured:true,title:"2-bedroom flat with balcony & POP",price:2500000,period:"yr",beds:2,baths:2,area:"Lekki Phase 1",city:"Lagos",desc:"Spacious serviced 2-bed in a gated estate. Prepaid meter, elevator, 24hr power and security. Walking distance to Admiralty Way.",phone:"2348100000001",pics:["lekki1","lekki2","lekki3"],vid:""},
+    {id:"s2",type:"rental",featured:false,title:"Clean self-contain, all ensuite",price:900000,period:"yr",beds:1,baths:1,area:"Yaba",city:"Lagos",desc:"Newly renovated self-contain close to UNILAG. Water 24/7, tiled floors, secure compound, good road access.",phone:"2348100000002",pics:["yaba1","yaba2"],vid:""},
+    {id:"s3",type:"rental",featured:true,title:"4-bedroom terrace duplex",price:12000000,period:"yr",beds:4,baths:5,area:"Ikoyi",city:"Lagos",desc:"Luxury terrace in a serviced court. BQ, gym, pool, standby generator. Perfect for families or executive lets.",phone:"2348100000003",pics:["ikoyi1","ikoyi2","ikoyi3","ikoyi4"],vid:""},
+    {id:"s4",type:"rental",featured:false,title:"Cozy 1-bedroom apartment",price:750000,period:"yr",beds:1,baths:1,area:"Surulere",city:"Lagos",desc:"Quiet street off Bode Thomas. Shared compound, prepaid meter, borehole water. 10 minutes to the National Stadium.",phone:"2348100000004",pics:["suru1","suru2"],vid:""},
+    {id:"s5",type:"rental",featured:false,title:"3-bedroom flat, family sized",price:4500000,period:"yr",beds:3,baths:3,area:"Wuse 2",city:"Abuja",desc:"Prime Wuse 2 location near Jabi. All rooms ensuite, fitted kitchen, ample parking, strong water supply.",phone:"2348100000005",pics:["wuse1","wuse2"],vid:""},
+    {id:"s6",type:"rental",featured:false,title:"Affordable 2-bedroom in a good estate",price:2800000,period:"yr",beds:2,baths:2,area:"Gwarinpa",city:"Abuja",desc:"Gwarinpa estate living without the Gwarinpa price. Tiled throughout, secure perimeter, friendly neighbourhood.",phone:"2348100000006",pics:["gwar1","gwar2","gwar3"],vid:""},
+    {id:"s7",type:"rental",featured:false,title:"Mini flat in GRA",price:1500000,period:"yr",beds:2,baths:2,area:"GRA Phase 2",city:"Port Harcourt",desc:"Neat mini flat in old GRA. Constant water, generator for common areas, close to shops and schools.",phone:"2348100000007",pics:["ph1","ph2"],vid:""},
+    {id:"s8",type:"short",featured:true,title:"Serviced 2-bed, ocean view",price:45000,period:"night",beds:2,baths:2,area:"Lekki Phase 1",city:"Lagos",desc:"Fully furnished smart apartment. Fast wifi, Netflix, gym and pool access. Self check-in from 2pm.",phone:"2348100000008",pics:["stay1","stay2","stay3"],vid:""},
+    {id:"s9",type:"short",featured:false,title:"Central serviced studio",price:60000,period:"night",beds:1,baths:1,area:"Wuse 2",city:"Abuja",desc:"Studio in the heart of Wuse 2. Daily cleaning, 24hr power, workspace-friendly desk and wifi.",phone:"2348100000009",pics:["stay4","stay5"],vid:""},
+    {id:"s10",type:"short",featured:false,title:"Garden apartment for two",price:35000,period:"night",beds:1,baths:1,area:"GRA Phase 2",city:"Port Harcourt",desc:"Quiet garden flat, fully furnished. Free parking, security gated, 15 minutes from the airport road.",phone:"2348100000010",pics:["stay6","stay7"],vid:""}
+  ];
+
+  function img(seed,w,h){ return "https://picsum.photos/seed/rentora-"+seed+"/"+w+"/"+h; }
+
+  function allListings(){
+    var mine=store("rentora_listings")||[];
+    return mine.concat(SEED);
+  }
+
+  function fmt(n){ return "₦"+n.toLocaleString("en-NG"); }
+
+  function matches(l){
+    if(l.type!==mode) return false;
+    if(!query) return true;
+    var q=query.toLowerCase();
+    return (l.city+" "+l.area+" "+l.title).toLowerCase().indexOf(q)>-1;
+  }
+
+  function waLink(listing,msg){
+    var ph=(listing.phone||"").replace(/\D/g,"");
+    if(ph.length===11 && ph[0]==="0") ph="234"+ph.slice(1);
+    return "https://wa.me/"+ph+"?text="+encodeURIComponent(msg);
+  }
+
+  function buildCard(l,mine){
+    var c=document.createElement("div"); c.className="card"; c.dataset.id=l.id;
+    var pics=(l.pics&&l.pics.length)?l.pics:["ph-a","ph-b"];
+    var medias=pics.map(function(p,i){
+      var isData=/^data:/.test(p);
+      var src=isData?p:img(p,900,1400);
+      return '<img class="media'+(l.vid&&i===0?' vid':'')+'" src="'+src+'" alt="'+l.title+'" draggable="false">';
+    });
+    if(l.vid){ medias.unshift('<video class="media" src="'+l.vid+'" playsinline muted loop preload="metadata"></video>'); }
+    var dots=pics.map(function(_,i){return '<i'+(i===0?' class="on"':'')+'></i>';}).join("");
+    c.innerHTML=
+      '<div class="mediaWrap" style="position:absolute;inset:0">'+medias.join("")+'</div>'+
+      '<div class="shade"></div>'+
+      (l.featured?'<div class="featured-badge">★ FEATURED</div>':'')+
+      '<div class="dots">'+dots+'</div>'+
+      '<div class="overlay">'+
+        '<div class="price">'+fmt(l.price)+'<small> /'+l.period+'</small></div>'+
+        '<div class="tagline"><span class="chip type">'+(l.type==="rental"?'Long rental':'Short stay')+'</span>'+
+          '<span class="chip">'+l.beds+' bed'+(l.beds>1?'s':'')+'</span>'+
+          '<span class="chip">'+l.baths+' bath'+(l.baths>1?'s':'')+'</span>'+
+          '<span class="chip">'+l.area+', '+l.city+'</span></div>'+
+        '<div class="title">'+l.title+'</div>'+
+        '<div class="desc">'+l.desc+'</div>'+
+        '<button class="more">more</button>'+
+        '<div class="cta">'+
+          '<a class="wa" target="_blank" rel="noopener" href="'+waLink(l,'Hi, I saw your '+l.title+' in '+l.area+' on Rentora. Is it still available?')+'">💬 Chat on WhatsApp</a>'+
+          (l.type==="short"?'<button class="book" data-book="'+l.id+'">Request to book</button>':'')+
+        '</div>'+
+        (l.landlord?'<div class="landlord">Listed by '+l.landlord+'</div>':'')+
+      '</div>';
+    var imgs=Array.prototype.slice.call(c.querySelectorAll("img.media"));
+    var idx=0;
+    c.querySelector(".mediaWrap").addEventListener("click",function(){
+      idx=(idx+1)%Math.max(imgs.length,1);
+      imgs.forEach(function(im,i){ im.style.display=(i===idx)?"block":"none"; });
+      var ds=c.querySelectorAll(".dots i");
+      Array.prototype.forEach.call(ds,function(d,i){ d.className=(i===idx)?"on":""; });
+    });
+    var moreBtn=c.querySelector(".more");
+    moreBtn.addEventListener("click",function(){ c.querySelector(".desc").classList.toggle("open"); });
+    var b=c.querySelector("[data-book]");
+    if(b) b.addEventListener("click",function(){ openBook(l); });
+    return c;
+  }
+
+  function render(){
+    var list=allListings().filter(matches);
+    list.sort(function(a,b){ return (b.featured?1:0)-(a.featured?1:0); });
+    feed.innerHTML="";
+    if(!list.length){ emptyBox.style.display="flex"; return; }
+    emptyBox.style.display="none";
+    list.forEach(function(l){ feed.appendChild(buildCard(l)); });
+  }
+
+  searchEl.addEventListener("input",function(){ query=searchEl.value.trim(); render(); });
+  document.querySelectorAll("#modeTabs .tab").forEach(function(t){
+    t.addEventListener("click",function(){
+      document.querySelectorAll("#modeTabs .tab").forEach(function(x){x.classList.remove("active");});
+      t.classList.add("active");
+      mode=t.dataset.mode;
+      var pl=$("#li_priceLabel");
+      if(pl) pl.textContent = mode==="rental" ? "Price per year (₦)" : "Price per night (₦)";
+      render();
+    });
+  });
+
+  function openM(id){ $(id).classList.add("open"); }
+  document.querySelectorAll("[data-close]").forEach(function(b){ b.addEventListener("click",function(){ b.closest(".modal").classList.remove("open"); }); });
+  document.querySelectorAll(".modal").forEach(function(m){ m.addEventListener("click",function(e){ if(e.target===m) m.classList.remove("open"); }); });
+  $("#pricingBtn").addEventListener("click",function(){ openM("#pricingModal"); });
+
+  document.querySelectorAll(".plan").forEach(function(p){
+    p.addEventListener("click",function(){
+      document.querySelectorAll(".plan").forEach(function(x){x.classList.remove("sel");});
+      p.classList.add("sel"); p.querySelector("input").checked=true;
+    });
+  });
+
+  $("#listBtn").addEventListener("click",function(){
+    var u=store("rentora_user");
+    if(u){ $("#li_phone").value=u.phone||""; openM("#listModal"); }
+    else openM("#signupModal");
+  });
+  $("#su_go").addEventListener("click",function(){
+    var n=$("#su_name").value.trim(), p=$("#su_phone").value.trim(), e=$("#su_email").value.trim();
+    var okPhone=p.replace(/\D/g,"").length>=10;
+    if(!n||!okPhone||!e||e.indexOf("@")<0){ $("#su_err").style.display="block"; return; }
+    $("#su_err").style.display="none";
+    store("rentora_user",{name:n,phone:p,email:e});
+    $("#signupModal").classList.remove("open");
+    $("#li_phone").value=p;
+    openM("#listModal");
+  });
+
+  $("#li_type").addEventListener("change",function(){
+    $("#li_priceLabel").textContent = this.value==="rental" ? "Price per year (₦)" : "Price per night (₦)";
+  });
+  function compress(file,cb){
+    var r=new FileReader();
+    r.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var max=1000, s=Math.min(1,max/Math.max(im.width,im.height));
+        var cv=document.createElement("canvas");
+        cv.width=Math.round(im.width*s); cv.height=Math.round(im.height*s);
+        cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);
+        cb(cv.toDataURL("image/jpeg",0.72));
+      };
+      im.src=r.result;
+    };
+    r.readAsDataURL(file);
+  }
+  $("#li_go").addEventListener("click",function(){
+    var g=function(id){return $(id).value.trim();};
+    var type=$("#li_type").value, title=g("#li_title"), price=parseInt(g("#li_price"),10);
+    var beds=parseInt(g("#li_beds"),10)||0, baths=parseInt(g("#li_baths"),10)||0;
+    var area=g("#li_area"), city=g("#li_city"), desc=g("#li_desc")||"Contact the landlord for full details.";
+    var phone=g("#li_phone"), video=g("#li_video");
+    if(!title||!price||!area||!city||phone.replace(/\D/g,"").length<10){ $("#li_err").style.display="block"; return; }
+    $("#li_err").style.display="none";
+    var u=store("rentora_user")||{name:"Landlord"};
+    var plan=(document.querySelector('input[name="plan"]:checked')||{}).value||"basic";
+    var files=Array.prototype.slice.call($("#li_photos").files||[]).slice(0,4);
+    var l={id:"u"+Date.now(),type:type,featured:plan==="premium",title:title,price:price,
+      period:type==="rental"?"yr":"night",beds:beds,baths:baths,area:area,city:city,desc:desc,
+      phone:phone,vid:video,landlord:u.name,plan:plan,pics:[]};
+    var done=0;
+    function finish(){
+      var mine=store("rentora_listings")||[];
+      mine.unshift(l);
+      store("rentora_listings",mine);
+      $("#listModal").classList.remove("open");
+      ["#li_title","#li_price","#li_beds","#li_baths","#li_area","#li_city","#li_desc","#li_video","#li_photos"].forEach(function(s){ $(s).value=""; });
+      mode=l.type; query="";
+      searchEl.value="";
+      document.querySelectorAll("#modeTabs .tab").forEach(function(x){ x.classList.toggle("active",x.dataset.mode===mode); });
+      render();
+      if(plan!=="basic"){
+        alert("Listing posted! Plan payment ("+(plan==="standard"?"₦2,000":"₦5,000")+") is completed over WhatsApp while card payments are coming soon. We'll reach out on "+phone+".");
+      }
+    }
+    if(!files.length){ l.pics=["generic1"]; finish(); return; }
+    files.forEach(function(f){ compress(f,function(d){ l.pics.push(d); done++; if(done===files.length) finish(); }); });
+  });
+
+  var bookL=null;
+  function openBook(l){
+    bookL=l;
+    $("#bk_sub").textContent=l.title+" — "+fmt(l.price)+" / night";
+    openM("#bookModal");
+  }
+  $("#bk_go").addEventListener("click",function(){
+    var i=$("#bk_in").value, o=$("#bk_out").value, gu=$("#bk_guests").value||"2";
+    if(!i||!o||o<=i){ $("#bk_err").style.display="block"; return; }
+    $("#bk_err").style.display="none";
+    var msg="Hi, I'd like to book "+bookL.title+" in "+bookL.area+" from "+i+" to "+o+" for "+gu+" guest(s), via Rentora. Is it available?";
+    window.open(waLink(bookL,msg),"_blank");
+    $("#bookModal").classList.remove("open");
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
